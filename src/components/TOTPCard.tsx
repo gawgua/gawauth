@@ -1,4 +1,4 @@
-import { MoreHorizontal, Plus, Search, Trash2 } from "lucide-react";
+import { MoreHorizontal, Plus, Search, Star, Trash2 } from "lucide-react";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -40,6 +40,15 @@ export default function TOTPCard({
 	onDelete,
 	progress,
 }: TOTPCardProps) {
+	if (item.account.includes(":")) {
+		item.issuer = item.account.split(":")[0];
+		item.account = item.account.split(":")[1];
+	}
+
+	if (item.issuer === "") {
+		item.issuer = item.account;
+		item.account = "";
+	}
 
 	return (
 		<Card
@@ -47,6 +56,16 @@ export default function TOTPCard({
 				isMenuOpen ? " totp-card-active" : ""
 			}`}
 		>
+			<div className="totp-row-favorite">
+				<Button
+					className="totp-favorite-trigger"
+					variant="ghost"
+					size="icon"
+					title="Favorite"
+				>
+					<Star />
+				</Button>
+			</div>
 			<div className="totp-row-identity">
 				<div className="totp-issuer-row">
 					<p className="totp-issuer">{item.issuer}</p>
