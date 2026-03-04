@@ -43,7 +43,7 @@ pub fn gen_otp_from_secret(secret: &Vec<u8>, digits: u32) -> String {
 	// Step 3: Snum = StToNum(Sbits) (Snum = integer)
 	// Return D = Snum % 10^digits
 	let d = (sbits % 10u32.pow(digits)).to_string();
-	if (d.len() < digits as usize) {
+	if d.len() < digits as usize {
 		// Pad with leading zeros if necessary
 		return "0".repeat(digits as usize - d.len()) + &d;
 	} else {

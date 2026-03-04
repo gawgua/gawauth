@@ -23,4 +23,4 @@ dist-ssr
 *.sln
 *.sw?
 
-src-tauri/auth_store.json
+src-tauri/userdata.bin
