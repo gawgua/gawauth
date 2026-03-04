@@ -17,13 +17,26 @@ import {
 	Archive,
 	Clock,
 	HelpCircle,
-	Plus,
 	Settings,
 	ShieldCheck,
 	Star,
 } from "lucide-react";
 
-export default function AppSidebar() {
+export type SidebarFilter = "all" | "favorites";
+
+interface AppSidebarProps {
+	activeFilter: SidebarFilter;
+	onFilterChange: (filter: SidebarFilter) => void;
+	totalCount: number;
+	favoritesCount: number;
+}
+
+export default function AppSidebar({
+	activeFilter,
+	onFilterChange,
+	totalCount,
+	favoritesCount,
+}: AppSidebarProps) {
 	return (
 		<Sidebar side="left" variant="sidebar" collapsible="none" className="app-sidebar">
 			<SidebarHeader className="app-sidebar-header">
@@ -41,29 +54,24 @@ export default function AppSidebar() {
 					<SidebarGroupContent>
 						<SidebarMenu>
 							<SidebarMenuItem>
-								<SidebarMenuButton isActive>
+								<SidebarMenuButton
+									isActive={activeFilter === "all"}
+									onClick={() => onFilterChange("all")}
+								>
 									<ShieldCheck />
 									<span>All tokens</span>
 								</SidebarMenuButton>
-								<SidebarMenuBadge>12</SidebarMenuBadge>
+								{totalCount > 0 && <SidebarMenuBadge>{totalCount}</SidebarMenuBadge>}
 							</SidebarMenuItem>
 							<SidebarMenuItem>
-								<SidebarMenuButton>
+								<SidebarMenuButton
+									isActive={activeFilter === "favorites"}
+									onClick={() => onFilterChange("favorites")}
+								>
 									<Star />
 									<span>Favorites</span>
 								</SidebarMenuButton>
-							</SidebarMenuItem>
-							<SidebarMenuItem>
-								<SidebarMenuButton>
-									<Clock />
-									<span>Recently used</span>
-								</SidebarMenuButton>
-							</SidebarMenuItem>
-							<SidebarMenuItem>
-								<SidebarMenuButton>
-									<Archive />
-									<span>Archive</span>
-								</SidebarMenuButton>
+								{favoritesCount > 0 && <SidebarMenuBadge>{favoritesCount}</SidebarMenuBadge>}
 							</SidebarMenuItem>
 						</SidebarMenu>
 					</SidebarGroupContent>

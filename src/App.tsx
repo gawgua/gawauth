@@ -1,6 +1,6 @@
 import "./App.css";
 import { SidebarInset, SidebarProvider } from "./components/ui/sidebar";
-import AppSidebar from "./components/AppSidebar";
+import AppSidebar, { SidebarFilter } from "./components/AppSidebar";
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import MainHeader from "./components/MainHeader";
@@ -10,24 +10,53 @@ import { TOTPItem } from "./components/TOTPCard";
 
 const TOTP_PERIOD = 30; // TOTP period in seconds
 
+interface AppConfig {
+	favourites: string[];
+}
+
+const DEFAULT_CONFIG: AppConfig = {
+	favourites: [],
+};
+
 function App() {
-	const [openMenuId, setOpenMenuId] = useState<number | null>(null);
+	const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 	const [items, setItems] = useState<TOTPItem[]>([]);
+	const [, setConfig] = useState<AppConfig>(DEFAULT_CONFIG);
 	const [progress, setProgress] = useState(0);
 	const [searchQuery, setSearchQuery] = useState("");
 	const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("");
 	const [isToolbarPinned, setIsToolbarPinned] = useState(false);
+	const [sidebarFilter, setSidebarFilter] = useState<SidebarFilter>("all");
 	const mainScrollRef = useRef<HTMLDivElement | null>(null);
+	const configRef = useRef<AppConfig>(DEFAULT_CONFIG);
+
+	const updateConfig = useCallback(async (nextConfig: AppConfig) => {
+		setConfig(nextConfig);
+		configRef.current = nextConfig;
+
+		try {
+			const savedConfig = await invoke<string>("set_config", {
+				config: JSON.stringify(nextConfig),
+			});
+			const parsed = JSON.parse(savedConfig) as AppConfig;
+			setConfig(parsed);
+			configRef.current = parsed;
+		} catch (error) {
+			console.error("Failed to sync config", error);
+		}
+	}, []);
 
 	const refreshTokens = useCallback(async () => {
 		try {
 			const payload = await invoke<string>("get_all_tokens");
+			const favouriteIds = new Set(configRef.current.favourites);
 			const parsed = payload
 				.split("\n")
 				.map((line) => line.trim())
 				.filter(Boolean)
-				.map((line, index) => {
+				.map((line) => {
 					const data = JSON.parse(line) as {
+						id: string;
 						account_name: string;
 						issuer: string;
 						digits: number;
@@ -35,25 +64,44 @@ function App() {
 					};
 
 					return {
-						id: index + 1,
+						id: data.id,
 						issuer: data.issuer,
 						account: data.account_name,
 						code: data.otp,
 						period: TOTP_PERIOD,
 						badge: "Token",
 						badgeClass: "badge-work",
+						isFavorite: favouriteIds.has(data.id),
 					};
 				});
-			if (parsed.length !== 0) {
-				setItems(parsed);
-			}
+			setItems(parsed);
 		} catch (error) {
 			console.error("Failed to refresh tokens", error);
 		}
 	}, []);
 
 	useEffect(() => {
-		refreshTokens();
+		const initializeConfigAndTokens = async () => {
+			try {
+				const payload = await invoke<string>("get_config");
+				if (payload.trim()) {
+					const loadedConfig = JSON.parse(payload) as AppConfig;
+					const normalizedConfig = {
+						favourites: Array.isArray(loadedConfig.favourites)
+							? loadedConfig.favourites
+							: [],
+					};
+					setConfig(normalizedConfig);
+					configRef.current = normalizedConfig;
+				}
+			} catch (error) {
+				console.error("Failed to load config", error);
+			}
+
+			await refreshTokens();
+		};
+
+		initializeConfigAndTokens();
 
 		let lastElapsed = -1;
 
@@ -73,10 +121,32 @@ function App() {
 		return () => clearInterval(interval);
 	}, [refreshTokens]);
 
-	const handleDelete = (_id: number) => {
+	const handleDelete = (_id: string) => {
 		setOpenMenuId(null);
 		refreshTokens();
 	};
+
+	const handleToggleFavorite = useCallback(
+		(id: string) => {
+			setItems((currentItems) =>
+				currentItems.map((item) =>
+					item.id === id
+						? { ...item, isFavorite: !item.isFavorite }
+						: item,
+				),
+			);
+
+			const hasId = configRef.current.favourites.includes(id);
+			const nextConfig: AppConfig = {
+				favourites: hasId
+					? configRef.current.favourites.filter((favouriteId) => favouriteId !== id)
+					: [...configRef.current.favourites, id],
+			};
+
+			updateConfig(nextConfig);
+		},
+		[updateConfig],
+	);
 
 	useEffect(() => {
 		const timeout = setTimeout(() => {
@@ -87,11 +157,16 @@ function App() {
 	}, [searchQuery]);
 
 	const filteredItems = useMemo(() => {
+		const baseItems =
+			sidebarFilter === "favorites"
+				? items.filter((item) => item.isFavorite)
+				: items;
+
 		if (!debouncedSearchQuery) {
-			return items;
+			return baseItems;
 		}
 
-		return items.filter((item) => {
+		return baseItems.filter((item) => {
 			let issuer = item.issuer?.trim() ?? "";
 			let account = item.account?.trim() ?? "";
 
@@ -110,7 +185,12 @@ function App() {
 			const searchText = `${issuer} ${account}`.toLowerCase();
 			return searchText.includes(debouncedSearchQuery);
 		});
-	}, [debouncedSearchQuery, items]);
+	}, [debouncedSearchQuery, items, sidebarFilter]);
+
+	const favoritesCount = useMemo(
+		() => items.filter((item) => item.isFavorite).length,
+		[items],
+	);
 
 	useEffect(() => {
 		const element = mainScrollRef.current;
@@ -132,7 +212,12 @@ function App() {
 
 	return (
 		<SidebarProvider defaultOpen={true} className="app-shell">
-			<AppSidebar />
+			<AppSidebar
+				activeFilter={sidebarFilter}
+				onFilterChange={setSidebarFilter}
+				totalCount={items.length}
+				favoritesCount={favoritesCount}
+			/>
 			<SidebarInset
 				ref={mainScrollRef}
 				className="h-svh overflow-y-auto px-3 sm:px-4 md:px-6"
@@ -153,6 +238,7 @@ function App() {
 						openMenuId={openMenuId}
 						onMenuToggle={(id, open) => setOpenMenuId(open ? id : null)}
 						onDelete={handleDelete}
+						onToggleFavorite={handleToggleFavorite}
 						progress={progress}
 					/>
 				</div>

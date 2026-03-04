@@ -3,9 +3,10 @@ import { TOTPItem } from "./TOTPCard";
 
 interface TOTPListProps {
 	items: TOTPItem[];
-	openMenuId: number | null;
-	onMenuToggle: (id: number, open: boolean) => void;
-	onDelete: (id: number) => void;
+	openMenuId: string | null;
+	onMenuToggle: (id: string, open: boolean) => void;
+	onDelete: (id: string) => void;
+	onToggleFavorite: (id: string) => void;
 	progress: number;
 }
 
@@ -14,6 +15,7 @@ export default function TOTPList({
 	openMenuId,
 	onMenuToggle,
 	onDelete,
+	onToggleFavorite,
 	progress,
 }: TOTPListProps) {
 	return (
@@ -25,6 +27,7 @@ export default function TOTPList({
 					isMenuOpen={openMenuId === item.id}
 					onMenuToggle={onMenuToggle}
 					onDelete={onDelete}
+					onToggleFavorite={onToggleFavorite}
 					progress={progress}
 				/>
 			))}

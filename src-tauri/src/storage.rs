@@ -1,4 +1,4 @@
-use std::{fs, io, process::Command};
+use std::{fs, io, path::{Path, PathBuf}, process::Command};
 
 use aes_gcm::{
 	Aes256Gcm,
@@ -6,12 +6,22 @@ use aes_gcm::{
 	Nonce,
 };
 use sha1::{Digest, Sha1};
+use tauri::{AppHandle, Manager};
 
 use crate::totp::TOTPAuth;
 
 pub type AuthIndex = Vec<TOTPAuth>;
 
-pub const AUTH_FILE_PATH: &str = "userdata.bin";
+pub const AUTH_FILE_NAME: &str = "userdata.bin";
+
+pub fn resolve_auth_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
+	let config_dir = app_handle
+		.path()
+		.app_config_dir()
+		.map_err(|e| format!("failed to resolve app config dir: {e}"))?;
+
+	Ok(config_dir.join(AUTH_FILE_NAME))
+}
 
 fn get_hwid_hash() -> io::Result<[u8; 32]> {
 	#[cfg(target_os = "windows")]
@@ -69,7 +79,7 @@ fn get_hwid_hash() -> io::Result<[u8; 32]> {
 	}
 }
 
-pub fn save_auth(path: &str, repo: &AuthIndex) -> std::io::Result<()> {
+pub fn save_auth(path: impl AsRef<Path>, repo: &AuthIndex) -> std::io::Result<()> {
 	let json = serde_json::to_vec(repo)
 		.map_err(|e| io::Error::new(io::ErrorKind::Other, format!("Failed to serialize auth store: {e}")))?;
 
@@ -89,10 +99,13 @@ pub fn save_auth(path: &str, repo: &AuthIndex) -> std::io::Result<()> {
 	let mut output = Vec::with_capacity(12 + ciphertext.len());
 	output.extend_from_slice(&nonce_bytes);
 	output.extend_from_slice(&ciphertext);
+	if let Some(parent_dir) = path.as_ref().parent() {
+		fs::create_dir_all(parent_dir)?;
+	}
 	fs::write(path, output)
 }
 
-pub fn load_auth(path: &str) -> std::io::Result<AuthIndex> {
+pub fn load_auth(path: impl AsRef<Path>) -> std::io::Result<AuthIndex> {
 	let buf = fs::read(path)?;
 	if buf.is_empty() {
 		return Ok(AuthIndex::new());

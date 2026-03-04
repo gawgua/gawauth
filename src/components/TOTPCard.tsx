@@ -16,20 +16,22 @@ import { Separator } from "./ui/separator";
 import { CATEGORY_ITEMS } from "../lib/constants";
 
 export interface TOTPItem {
-	id: number;
+	id: string;
 	issuer: string;
 	account: string;
 	code: string;
 	period: number;
 	badge: string;
 	badgeClass: string;
+	isFavorite?: boolean;
 }
 
 interface TOTPCardProps {
 	item: TOTPItem;
 	isMenuOpen: boolean;
-	onMenuToggle: (id: number, open: boolean) => void;
-	onDelete: (id: number) => void;
+	onMenuToggle: (id: string, open: boolean) => void;
+	onDelete: (id: string) => void;
+	onToggleFavorite: (id: string) => void;
 	progress: number;
 }
 
@@ -38,6 +40,7 @@ export default function TOTPCard({
 	isMenuOpen,
 	onMenuToggle,
 	onDelete,
+	onToggleFavorite,
 	progress,
 }: TOTPCardProps) {
 	if (item.account.includes(":")) {
@@ -58,12 +61,14 @@ export default function TOTPCard({
 		>
 			<div className="totp-row-favorite">
 				<Button
-					className="totp-favorite-trigger"
+					className={`totp-favorite-trigger${item.isFavorite ? " totp-favorite-trigger-active" : ""}`}
 					variant="ghost"
 					size="icon"
-					title="Favorite"
+					title={item.isFavorite ? "Unfavorite" : "Favorite"}
+					aria-pressed={item.isFavorite}
+					onClick={() => onToggleFavorite(item.id)}
 				>
-					<Star />
+					<Star fill={item.isFavorite ? "currentColor" : "none"} />
 				</Button>
 			</div>
 			<div className="totp-row-identity">
