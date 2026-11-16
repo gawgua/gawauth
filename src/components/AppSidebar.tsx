@@ -12,10 +12,7 @@ import {
 	SidebarMenuItem,
 	SidebarSeparator,
 } from "./ui/sidebar";
-import { Button } from "./ui/button";
 import {
-	Archive,
-	Clock,
 	HelpCircle,
 	Settings,
 	ShieldCheck,
