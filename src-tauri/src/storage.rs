@@ -1,4 +1,6 @@
-use std::{fs, io, path::{Path, PathBuf}, process::Command};
+use std::{fs, io, path::{Path, PathBuf}};
+#[cfg(target_os = "windows")]
+use std::process::Command;
 
 use aes_gcm::{
 	Aes256Gcm,
@@ -61,11 +63,12 @@ fn get_hwid_hash() -> io::Result<[u8; 32]> {
 
 	#[cfg(not(target_os = "windows"))]
 	{
-		let hwid = if let Ok(machine_id) = fs::read_to_string("/etc/machine-id") {
-			machine_id.trim().to_string()
-		} else {
-			std::env::var("HOSTNAME").unwrap_or_default()
-		};
+		let hwid = fs::read_to_string("/etc/machine-id")
+			.ok()
+			.map(|s| s.trim().to_string())
+			.filter(|s| !s.is_empty())
+			.or_else(|| std::env::var("HOSTNAME").ok().filter(|s| !s.trim().is_empty()))
+			.unwrap_or_else(|| "gawauth-local-device".to_string());
 
 		if hwid.trim().is_empty() {
 			return Err(io::Error::new(io::ErrorKind::Other, "Unable to derive HWID"));
